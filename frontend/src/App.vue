@@ -17,10 +17,44 @@
           </div>
         </div>
         <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <h3 class="text-sm font-bold text-slate-400 mb-3">场景说明</h3>
+          <div class="text-xs text-slate-400 mb-2">
+            <span class="text-cyan-400 font-bold">适用场景：</span>{{ store.currentScenario.useCase }}
+          </div>
+          <div class="text-xs text-slate-400">
+            <span class="text-cyan-400 font-bold">推荐迭代：</span>{{ store.currentScenario.recommendedIterations }}
+          </div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <h3 class="text-sm font-bold text-slate-400 mb-3">参数控制</h3>
-          <label class="text-xs text-slate-500">迭代次数: {{ store.iterations }}</label>
-          <input type="range" min="100" max="5000" step="100" v-model.number="store.iterations" class="w-full mt-1 mb-3 accent-cyan-500" />
-          <button @click="store.runSimulation" :disabled="store.isRunning" class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded text-sm font-bold">
+          <div class="mb-4">
+            <div class="flex justify-between items-center">
+              <label class="text-xs text-slate-500">迭代次数</label>
+              <span class="text-xs text-cyan-400 font-mono">{{ store.iterations }}</span>
+            </div>
+            <input type="range" min="100" max="5000" step="100" v-model.number="store.iterations" class="w-full mt-1 accent-cyan-500" />
+            <p class="text-[10px] text-slate-500 mt-1">迭代越多精度越高，但计算时间越长。误差约与 1/√n 成正比。</p>
+          </div>
+          <div v-for="(param, key) in store.currentScenario.params" :key="key" class="mb-4">
+            <div class="flex justify-between items-center">
+              <label class="text-xs text-slate-300 font-medium">{{ param.label }}</label>
+              <span class="text-xs text-cyan-400 font-mono">{{ param.value.toFixed(4) }}</span>
+            </div>
+            <input type="range" 
+              :min="getParamMin(key, param.value)" 
+              :max="getParamMax(key, param.value)" 
+              :step="getParamStep(key, param.value)"
+              :value="param.value"
+              @input="store.updateParam(key, parseFloat(($event.target as HTMLInputElement).value))"
+              class="w-full mt-1 accent-cyan-500" />
+            <div class="mt-2 space-y-1 text-[10px]">
+              <p><span class="text-slate-500">含义：</span><span class="text-slate-400">{{ param.meaning }}</span></p>
+              <p><span class="text-slate-500">推荐范围：</span><span class="text-green-400">{{ param.recommended }}</span></p>
+              <p><span class="text-slate-500">场景说明：</span><span class="text-slate-400">{{ param.scenario }}</span></p>
+              <p v-if="param.caution" class="text-orange-400">⚠️ {{ param.caution }}</p>
+            </div>
+          </div>
+          <button @click="store.runSimulation" :disabled="store.isRunning" class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded text-sm font-bold mt-2">
             {{ store.isRunning ? '运行中...' : '▶ 开始模拟' }}
           </button>
         </div>
@@ -113,6 +147,30 @@ function runTest() {
   const g1 = group1Input.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
   const g2 = group2Input.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
   if (g1.length > 1 && g2.length > 1) store.runTest(g1, g2)
+}
+
+function getParamMin(key: string, value: number): number {
+  const ranges: Record<string, number> = {
+    dt: 0.001, D: 0.01, S0: 10, K: 10, r: 0, sigma: 0.01, T: 0.08,
+    p: 0.1, bankroll: 10, goal: 20
+  }
+  return ranges[key] !== undefined ? ranges[key] : value * 0.1
+}
+
+function getParamMax(key: string, value: number): number {
+  const ranges: Record<string, number> = {
+    dt: 0.2, D: 20, S0: 500, K: 500, r: 0.2, sigma: 1.0, T: 10,
+    p: 0.9, bankroll: 500, goal: 1000
+  }
+  return ranges[key] !== undefined ? ranges[key] : value * 3
+}
+
+function getParamStep(key: string, value: number): number {
+  const steps: Record<string, number> = {
+    dt: 0.001, D: 0.1, S0: 1, K: 1, r: 0.005, sigma: 0.01, T: 0.08,
+    p: 0.01, bankroll: 5, goal: 10
+  }
+  return steps[key] !== undefined ? steps[key] : value * 0.01
 }
 
 onMounted(() => { initCharts(); store.runSimulation() })
